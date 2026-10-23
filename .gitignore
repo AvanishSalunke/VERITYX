@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+storage/*
+!storage/.gitkeep
+Train/
+.pytest_cache/
