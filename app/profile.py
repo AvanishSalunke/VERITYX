@@ -15,6 +15,7 @@ UNITS = re.compile(r"\b(lakhs?|crores?|million|billion|thousand|basis points|bps
 def deterministic_facts(text: str) -> dict:
     years = sorted(set(YEAR.findall(text)))
     return {
+        "scope_counts": {w: len(re.findall(w, text, re.I)) for w in ("consolidated", "standalone")},
         "years": years[:20],
         "fiscal_periods": sorted({m.strip() for m in FY.findall(text)})[:10],
         "scope": sorted({m.lower() for m in SCOPE.findall(text)}),
@@ -37,6 +38,11 @@ def build_profile(doc_id: str, first_pages_text: str, det: dict) -> dict:
         f"Deterministic hints: {json.dumps(det)}\n\nText:\n{first_pages_text[:9000]}"
     )
     p = llm.call_json(PROFILE_SYS, user, max_tokens=3000)
+    # accept a scope only if the text uses that word often enough (avoid hallucinated scope)
+    sc = (p.get("scope") or "")
+    counts = det.get("scope_counts", {})
+    if sc.lower() not in ("consolidated", "standalone") or counts.get(sc.lower(), 0) < 5:
+        p["scope"] = None
     p["doc_id"] = doc_id
     p["deterministic"] = det
     return p

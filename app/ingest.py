@@ -1,7 +1,9 @@
 """Phase A, step 1: safe unzip, SHA-256 dedupe, page-preserving extraction, chunking."""
 import hashlib
+import os
 import re
 import zipfile
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -63,22 +65,67 @@ def dedupe(paths: list[Path]) -> dict[str, list[Path]]:
     return groups
 
 
-def extract_pdf(path: Path) -> list[PageRec]:
+_NUM = re.compile(r"\d[\d,.]*")
+RANGE = 20  # pages per worker task
+
+
+def looks_tabular(text: str) -> bool:
+    """Cheap gate: find_tables() costs ~1-2 s/page, so only run it on number-heavy pages."""
+    lines = [l for l in text.splitlines() if len(_NUM.findall(l)) >= 2]
+    return len(lines) >= 6
+
+
+def extract_range(path: str, start: int, end: int) -> list[PageRec]:
     pages = []
     with fitz.open(path) as doc:
-        for i, page in enumerate(doc):
+        for i in range(start, min(end, len(doc))):
+            page = doc[i]
             text = page.get_text("text") or ""
             tables = []
-            try:
-                for t in page.find_tables().tables:
-                    rows = [[(c or "").strip() for c in r] for r in t.extract()]
-                    if rows:
-                        tables.append(rows)
-            except Exception:
-                pass  # table detection is best-effort
+            if looks_tabular(text):
+                try:
+                    for t in page.find_tables().tables:
+                        rows = [[(c or "").strip() for c in r] for r in t.extract()]
+                        if rows:
+                            tables.append(rows)
+                except Exception:
+                    pass  # table detection is best-effort
             pages.append(PageRec(i + 1, page.get_label() or "", text,
                                  len(text.strip()) < MIN_CHARS_FOR_TEXT, tables))
     return pages
+
+
+def extract_pdf(path: Path) -> list[PageRec]:
+    with fitz.open(path) as doc:
+        n = len(doc)
+    return extract_range(str(path), 0, n)
+
+
+def extract_many(paths: list[Path], workers: int | None = None) -> list:
+    """Extract several PDFs across processes; returns list[list[PageRec]] or an Exception per path."""
+    workers = workers or max(1, (os.cpu_count() or 2) - 2)
+    jobs, out = [], []
+    with ProcessPoolExecutor(workers) as ex:
+        for pth in paths:
+            try:
+                with fitz.open(pth) as d:
+                    n = len(d)
+            except Exception as e:
+                out.append(e)
+                jobs.append([])
+                continue
+            out.append(None)
+            jobs.append([ex.submit(extract_range, str(pth), i, i + RANGE) for i in range(0, n, RANGE)])
+        res = []
+        for o, fs in zip(out, jobs):
+            if isinstance(o, Exception):
+                res.append(o)
+                continue
+            try:
+                res.append([pg for f in fs for pg in f.result()])
+            except Exception as e:
+                res.append(e)
+    return res
 
 
 def table_to_text(rows: list[list[str]]) -> str:
