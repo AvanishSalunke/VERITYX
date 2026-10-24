@@ -1,0 +1,80 @@
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 40, "rankSpacing": 55, "padding": 14, "wrappingWidth": 320}, "themeVariables": {"fontFamily": "Arial", "fontSize": "17px", "lineColor": "#46536A", "primaryTextColor": "#1B2333", "clusterBkg": "#FFFFFF", "clusterBorder": "#2E9AB5"}}}%%
+flowchart TB
+
+    subgraph api["Client and API Layer"]
+        direction LR
+        client["Client<br/>evaluation harness or agent"]
+        indexEP["POST /index<br/>zip + collection_name"]
+        queryEP["POST /query<br/>collection_name + query"]
+        client --> indexEP
+        client --> queryEP
+    end
+
+    subgraph indexing["Indexing Pipeline"]
+        direction LR
+        unzip["Archive Extraction<br/>PDFs, original file names"]
+        chunker["Chunker<br/>heading-aware, page-bound"]
+        ocr["OCR Fallback<br/>pages with no text layer"]
+        cards["Doc Card Builder<br/>title, issuer, period, scope"]
+        embedder["Embedder<br/>model2vec vectors"]
+        unzip --> chunker
+        chunker -. scanned pages .-> ocr
+        chunker --> cards
+        chunker --> embedder
+    end
+
+    subgraph store["Collection Store (one per collection_name)"]
+        direction LR
+        chunksF["chunks.jsonl<br/>document, page, section, text"]
+        cardsF["cards.json<br/>Doc Card catalog"]
+        embF["emb.npy<br/>chunk embeddings"]
+        chunksF ~~~ cardsF ~~~ embF
+    end
+
+    subgraph querying["Query Pipeline"]
+        direction LR
+        planner["Query Planner<br/>target documents and aspects"]
+        router["Fallback Router<br/>used if the planner fails"]
+        selector["Evidence Selector<br/>BM25 + embeddings per aspect<br/>section expansion"]
+        generator["Answer Generator<br/>every claim cites a chunk"]
+        verifier["Citation Verifier<br/>removes uncited claims"]
+        planner --> selector
+        planner -. on failure .-> router
+        router -.-> selector
+        selector --> generator --> verifier
+    end
+
+    response["Response<br/>answer, chunks with file name and pages, step trace"]
+
+    subgraph shared["Shared Services"]
+        direction LR
+        llm["LLM Client<br/>OpenCode, response cache, cost"]
+        tracing["Langfuse Tracing<br/>tokens, cost, latency"]
+        llm ~~~ tracing
+    end
+
+    indexEP --> indexing
+    indexing --> store
+    store --> querying
+    queryEP --> querying
+    querying --> response
+    indexing -. Doc Cards .-> shared
+    querying -. planner and answer calls, traces .-> shared
+
+    classDef compute fill:#FFB347,stroke:#B35F00,color:#1B2333,stroke-width:1.5px;
+    classDef llmstep fill:#8C4FFF,stroke:#5A2DB3,color:#FFFFFF,stroke-width:1.5px;
+    classDef data fill:#3F8624,stroke:#2A5A18,color:#FFFFFF,stroke-width:1.5px;
+    classDef service fill:#E7157B,stroke:#9E0E54,color:#FFFFFF,stroke-width:1.5px;
+    classDef io fill:#232F3E,stroke:#000000,color:#FFFFFF,stroke-width:1.5px;
+
+    class unzip,chunker,ocr,embedder,router,selector,verifier compute;
+    class cards,planner,generator llmstep;
+    class chunksF,cardsF,embF data;
+    class llm,tracing service;
+    class client,indexEP,queryEP,response io;
+
+    style api fill:#FFFFFF,stroke:#2E9AB5,stroke-width:2px,stroke-dasharray:6 4
+    style indexing fill:#F4F9EF,stroke:#7AA116,stroke-width:2px
+    style store fill:#FFFFFF,stroke:#2E9AB5,stroke-width:2px,stroke-dasharray:6 4
+    style querying fill:#F4F9EF,stroke:#7AA116,stroke-width:2px
+    style shared fill:#FFFFFF,stroke:#2E9AB5,stroke-width:2px,stroke-dasharray:6 4
