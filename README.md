@@ -27,6 +27,7 @@ Each step goes into the response `trace` array, and the whole query is one Langf
 | `verityx/planner.py`, `retrieve.py` | Document routing and chunk selection |
 | `verityx/answer.py` | Cited answer generation and citation verifier |
 | `verityx/pipeline.py` | `run_query()`: one query end to end (the `/query` response shape) |
+| `verityx/api.py` | FastAPI app: `POST /index`, `POST /query` |
 | `verityx/llm.py`, `tracing.py` | OpenCode client (disk cache) and Langfuse telemetry |
 
 ## Setup
@@ -49,6 +50,32 @@ LLM_PRICE_IN=      # USD per 1M input tokens, for cost tracking
 LLM_PRICE_OUT=     # USD per 1M output tokens
 LLM_CACHE=1        # 0 = always call the LLM (use for cost/latency exports)
 ```
+
+## API
+
+```bash
+uvicorn verityx.api:app --host 0.0.0.0 --port 8000
+```
+
+The app exposes exactly two endpoints:
+
+```bash
+curl -X POST http://HOST:8000/index -F "file=@docs.zip" -F "collection_name=test_corpus"
+curl -X POST http://HOST:8000/query -H "Content-Type: application/json" \
+     -d '{"collection_name": "test_corpus", "query": "..."}'
+```
+
+- **`/index`** returns `status: success` once indexing has finished. Each collection is stored in
+  its own `storage/<collection_name>/`, so indexing one collection never touches another.
+- **`/query`** returns:
+  - `answer`
+  - `chunks`: each with `document`, `page`, `section`, `text` and `cited_in_answer`
+  - `trace`: the steps, each with exactly `step_name`, `description`, `input` and `output`
+  - `latency_s`, `cost_usd`, `tokens` and `langfuse_trace_url`
+
+**Ingestion time:** the training corpus (35 PDFs, 6,970 pages, 105 of them OCR'd) indexes in
+about 4.5 min. Small corpora take seconds (3 PDFs: 9 s). Estimate: about 10 min for a corpus of
+similar size, which allows for OCR-heavy and slower servers.
 
 ## Run
 
