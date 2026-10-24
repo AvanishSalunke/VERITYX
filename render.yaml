@@ -1,0 +1,43 @@
+# Render Blueprint for the VERITYX API (POST /index, POST /query).
+#
+# Everything the app writes (collections, LLM and OCR caches) lives under the repo's
+# storage/ folder, so the persistent disk is mounted exactly there. Files outside a disk
+# are wiped on every deploy or restart.
+#
+# Secrets are marked sync: false: Render asks for them when the Blueprint is created and
+# they are never stored in this file.
+services:
+  - type: web
+    name: verityx
+    runtime: python
+    plan: standard            # 1 CPU / 2 GB. The API uses ~440 MB idle with one collection
+                              # loaded; free/starter (512 MB) are too small and have no disk.
+                              # A 2 CPU plan indexes faster (chunking is CPU-bound).
+    buildCommand: pip install -r requirements.txt
+    # One process: collections are cached in memory and indexing is locked per collection.
+    startCommand: uvicorn verityx.api:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: HF_HOME          # keep the embedding model download on the disk
+        value: /opt/render/project/src/storage/hf_cache
+      - key: OPENCODE_API_KEY
+        sync: false
+      - key: OPENCODE_BASE_URL
+        value: https://opencode.ai/inference/openai/v1/chat/completions
+      - key: OPENCODE_MODEL
+        value: deepseek-v4.1-flash
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_BASE_URL
+        value: https://cloud.langfuse.com
+      - key: LLM_PRICE_IN
+        value: "0.30"
+      - key: LLM_PRICE_OUT
+        value: "1.20"
+    disk:
+      name: verityx-storage
+      mountPath: /opt/render/project/src/storage
+      sizeGB: 5

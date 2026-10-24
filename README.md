@@ -77,6 +77,29 @@ curl -X POST http://HOST:8000/query -H "Content-Type: application/json" \
 about 4.5 min. Small corpora take seconds (3 PDFs: 9 s). Estimate: about 10 min for a corpus of
 similar size, which allows for OCR-heavy and slower servers.
 
+## Deploy on Render
+
+`render.yaml` is a Render Blueprint for the API:
+
+1. In Render, choose **New > Blueprint** and select this repository.
+2. Enter the secret values when prompted: `OPENCODE_API_KEY`, `LANGFUSE_PUBLIC_KEY` and
+   `LANGFUSE_SECRET_KEY`.
+3. After the first deploy, re-create collections with `POST /index`. The disk starts empty.
+
+What the Blueprint sets up:
+
+- **Plan:** `standard` (1 CPU, 2 GB RAM). The API uses about 440 MB at idle with the training
+  collection loaded. The 512 MB free and starter plans are too small and can't have a disk. A
+  2-CPU plan indexes faster, because chunking is CPU-bound.
+- **Persistent disk** mounted at `/opt/render/project/src/storage`, which is where the app
+  already writes collections and the LLM and OCR caches. Anything outside the disk is wiped on
+  every deploy or restart.
+- **One worker process:** collections are cached in memory, and indexing is locked per
+  collection.
+
+Ingestion on Render runs on fewer cores than the local timing above, so time a full `/index`
+there before stating an ingestion estimate.
+
 ## Run
 
 ```bash
