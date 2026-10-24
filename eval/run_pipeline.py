@@ -49,6 +49,7 @@ def main():
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--answer", action="store_true", help="generate cited answers")
     ap.add_argument("--split", default="all", choices=["all", "dev", "dev20", "holdout"])
+    ap.add_argument("--ids", nargs="*", default=[], help="only these question ids, e.g. A20")
     args = ap.parse_args()
 
     t0 = time.time()
@@ -83,6 +84,8 @@ def main():
         if args.split != "all":
             keep = set(load_splits()[args.split])
             bench = [q for q in bench if q["id"] in keep]
+        if args.ids:
+            bench = [q for q in bench if q["id"] in set(args.ids)]
         rows = list(pool.map(run_one, bench))
     failed = [r["id"] for r in rows if any(s["description"] == "failed" for s in r["trace"])]
     print(f"done in {time.time() - t0:.0f}s; LLM tokens {sum(r['tokens'] for r in rows)}"
