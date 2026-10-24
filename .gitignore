@@ -6,3 +6,5 @@ storage/*
 !storage/.gitkeep
 Train/
 .pytest_cache/
+eval/cache/
+eval/runs/

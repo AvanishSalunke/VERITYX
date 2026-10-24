@@ -1,0 +1,4 @@
+time,run,split,note,n,answer_precision,answer_recall,context_precision,context_recall
+2026-10-24 05:47,ans_v1.jsonl,dev20,v1 cited-only,18,0.3117,0.2748,0.574,0.4134
+2026-10-24 06:58,ans_v2.jsonl,dev20,"v2 concise+verifier, cited+relevant",20,0.3643,0.3193,0.7337,0.4698
+2026-10-24 06:58,ans_v2_cited.jsonl,dev20,"v2 concise+verifier, cited only",18,0.4001,0.2978,0.7574,0.3501
