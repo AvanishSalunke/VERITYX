@@ -65,11 +65,13 @@ curl -X POST http://HOST:8000/query -H "Content-Type: application/json" \
      -d '{"collection_name": "test_corpus", "query": "..."}'
 ```
 
-- **`/index`** returns `status: success` once indexing has finished. Each collection is stored in
+- **`/index`** returns `status: success` and `documents_indexed` once indexing has finished. Each collection is stored in
   its own `storage/<collection_name>/`, so indexing one collection never touches another.
 - **`/query`** returns:
   - `answer`
-  - `chunks`: each with `document`, `page`, `section`, `text` and `cited_in_answer`
+  - `chunks`: each with `content` and `metadata` holding `file_name` (as in the zip) and
+    1-based `page_numbers`, plus `section` and `cited_in_answer`. Empty when the documents
+    can't answer the question
   - `trace`: the steps, each with exactly `step_name`, `description`, `input` and `output`
   - `latency_s`, `cost_usd`, `tokens` and `langfuse_trace_url`
 

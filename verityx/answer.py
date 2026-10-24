@@ -28,6 +28,9 @@ Rules:
   [C3][C7]. Never cite a chunk that does not state the fact.
 - Keep near-duplicates apart: never mix figures from different years, entities or scopes.
 - If the evidence does not address part of the question, say so in one short sentence.
+- If the evidence does not answer the question at all, the whole answer is one sentence saying
+  the documents do not contain this information, with no citations and an empty "relevant"
+  list. Do not describe unrelated evidence.
 - Length follows the question: a narrow factual question 80-250 words; a broad review or
   multi-part question 450-850 words. Never exceed 900 words.
 - Format: "## Short answer" (2-4 sentences), then 2-5 "## <heading>" sections of concise
