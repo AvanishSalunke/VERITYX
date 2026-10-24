@@ -1,0 +1,8 @@
+pymupdf>=2.0
+numpy>=2.0
+rank-bm25>=0.2.2
+model2vec>=0.10
+requests>=2.31
+python-dotenv>=1.0
+anthropic>=2.0
+langfuse>=5.0,<6
